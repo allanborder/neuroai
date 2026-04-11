@@ -20,7 +20,14 @@ Phase 1: Top layers trained with frozen base (Adam, lr=0.001)
 Phase 2: Fine-tuning with last 60 layers unfrozen (Adam, lr=5e-6)
 Regularization: Dropout (0.5 + 0.3), Batch Normalization, Label Smoothing
 Augmentation: Flips, zoom, rotation, shifts, shear, brightness variation
-Input: 224×224 RGB, EfficientNet-native preprocessing
+Input: 224×224 RGB, EfficientNet-native preprocessing 
+
+## Dataset
+This model was trained on the Brain Tumor MRI Dataset from Kaggle.
+📦 Download: https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset
+- 4 classes: Glioma, Meningioma, Pituitary, No Tumor
+- ~5700 training images
+- ~1300 testing images
 
 
 🛠️ Tech Stack
