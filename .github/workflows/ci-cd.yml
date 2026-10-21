@@ -1,0 +1,98 @@
+name: NeuroAI CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backend-validation:
+    name: Backend Lint, Test & Model Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Use tensorflow-cpu on CI runner for speed and lower RAM consumption
+          pip install --no-cache-dir -r requirements.txt
+
+      - name: Verify Python code syntax
+        run: |
+          python -m py_compile app.py llm_service.py
+
+      - name: Run Backend Integration & Model Smoke Test
+        run: |
+          python -c "
+          import app, llm_service
+          print('Imports successful')
+          assert app.load_brain_model() == True, 'Model loading failed'
+          assert app.model is not None, 'Model is None after loading'
+          print('Model smoke test passed')
+          "
+
+  frontend-validation:
+    name: Frontend Lint, Test & Build Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./neuroai-frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: neuroai-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run automated frontend tests
+        run: npm test -- --watchAll=false
+        env:
+          CI: true
+
+      - name: Build production bundle
+        run: npm run build
+        env:
+          CI: true
+          REACT_APP_API_URL: https://api.neuroai.live
+
+  deploy-webhook:
+    name: Trigger Automated Deployment
+    needs: [backend-validation, frontend-validation]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deploy Hook (if configured)
+        env:
+          RENDER_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$RENDER_HOOK" ]; then
+            echo "Triggering Render deployment webhook..."
+            curl -s -f -X POST "$RENDER_HOOK"
+            echo "Render deployment triggered successfully."
+          else
+            echo "RENDER_DEPLOY_HOOK_URL secret not set. Skipping webhook (Render auto-deploys from Git if configured)."
+          fi

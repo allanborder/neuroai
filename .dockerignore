@@ -1,0 +1,16 @@
+.git
+.github
+node_modules
+neuroai-frontend
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.coverage
+htmlcov
+.env
+.env.*
+*.log
+.DS_Store
+Thumbs.db

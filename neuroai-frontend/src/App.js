@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 
-const API = "http://127.0.0.1:8000";
+const API = (process.env.REACT_APP_API_URL || "http://127.0.0.1:8000").replace(/\/+$/, "");
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&family=Manrope:wght@300;400;500;600;700;800&display=swap');
@@ -384,7 +384,7 @@ function ProbBars({ probs }) {
   useEffect(() => { const t=setTimeout(()=>setGo(true),80); return ()=>clearTimeout(t); }, []);
   return (
     <div className="probs">
-      <div className="probs-label">// class probabilities</div>
+      <div className="probs-label">{"// class probabilities"}</div>
       {Object.entries(probs).map(([cls,val],i) => {
         const [a,b] = CLASS_COLORS[cls]||["#3b82f6","#60a5fa"];
         return (
@@ -421,21 +421,54 @@ export default function App() {
   const [file,setFile]=useState(null),[preview,setPreview]=useState(null);
   const [loading,setLoading]=useState(false),[step,setStep]=useState(0);
   const [result,setResult]=useState(null),[error,setError]=useState(null);
+  const [apiStatus,setApiStatus]=useState("Connecting to API...");
 
   useReveal();
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchHealth = async () => {
+      try {
+        const res = await fetch(`${API}/health`);
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted) setApiStatus(`API Online · ${data.llm_provider || "Mistral"}`);
+        } else {
+          if (isMounted) setApiStatus("API Non-200");
+        }
+      } catch (_) {
+        if (isMounted) setApiStatus("API Offline");
+      }
+    };
+    fetchHealth();
+    const timer = setInterval(fetchHealth, 20000);
+    return () => { isMounted = false; clearInterval(timer); };
+  }, []);
 
   const handleFile = f => { setFile(f); setPreview(URL.createObjectURL(f)); setResult(null); setError(null); };
   const run = async () => {
     if(!file) return;
     setLoading(true); setError(null); setResult(null); setStep(0);
     try {
-      const fd=new FormData(); fd.append("file",file);
-      const timer=setTimeout(()=>setStep(1),2000);
-      const res=await fetch(`${API}/diagnose`,{method:"POST",body:fd});
+      const fd = new FormData();
+      fd.append("file", file);
+      const timer = setTimeout(() => setStep(1), 2000);
+      const res = await fetch(`${API}/diagnose`, { method: "POST", body: fd });
       clearTimeout(timer);
-      if(!res.ok) throw new Error(`Server error ${res.status}`);
+      if(!res.ok) {
+        let msg = `Server error ${res.status}`;
+        try {
+          const errJson = await res.json();
+          if (errJson && errJson.detail) msg = errJson.detail;
+        } catch (_) {}
+        throw new Error(msg);
+      }
       setResult(await res.json());
-    } catch(e){ setError(e.message); } finally { setLoading(false); }
+    } catch(e){
+      setError(e.message || "Failed to analyze MRI scan.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const confCls = p => p>=80?"ch":p>=60?"cm":"cl";
@@ -507,7 +540,7 @@ export default function App() {
               <div className="m-sub">No API keys. No data leaves your machine.</div>
             </div>
             <div className="metric w2">
-              <div className="m-label" style={{marginBottom:"0.75rem"}}>// full stack</div>
+              <div className="m-label" style={{marginBottom:"0.75rem"}}>{"// full stack"}</div>
               <div className="chips">
                 <span className="chip c">EfficientNetB0</span><span className="chip c">TensorFlow 2.x</span>
                 <span className="chip">Mistral 7B</span><span className="chip">Ollama</span>
@@ -580,17 +613,17 @@ export default function App() {
             <div className="demo-bar">
               <div>
                 <div className="demo-title">Brain MRI Classifier + Report Generator</div>
-                <div className="demo-sub">// EfficientNetB0 → Mistral 7B → Clinical Report</div>
+                <div className="demo-sub">{"// EfficientNetB0 → Mistral 7B → Clinical Report"}</div>
               </div>
-              <div className="live-badge"><div className="live-dot"/>localhost:8000</div>
+              <div className="live-badge"><div className="live-dot"/>{apiStatus}</div>
             </div>
             <div className="demo-body">
               <div className="demo-cols">
                 <div className="upload-panel">
-                  <div className="panel-label">// upload mri scan</div>
+                  <div className="panel-label">{"// upload mri scan"}</div>
                   <DropZone onFile={handleFile} preview={preview}/>
                   <button className="run-btn" onClick={run} disabled={!file||loading}>{loading?"Analyzing…":"Run Diagnosis →"}</button>
-                  {error && <div className="error-box">⚠ {error}<br/>Check FastAPI on localhost:8000 and Ollama is active.</div>}
+                  {error && <div className="error-box">⚠ {error}<br/>Verify backend service is running and accessible at {API}.</div>}
                 </div>
                 <div>
                   {!file&&!loading&&!result&&(
@@ -608,7 +641,7 @@ export default function App() {
                         </div>
                       )}
                       {result.all_probabilities&&<ProbBars probs={result.all_probabilities}/>}
-                      <div className="rep-label">// mistral 7b · diagnostic report</div>
+                      <div className="rep-label">{"// mistral 7b · diagnostic report"}</div>
                       <div className="rep-body">{result.generated_report?.split("⚠️ DISCLAIMER:")[0].trim()}</div>
                       <div className="disclaimer">⚠ AI-generated for educational purposes only. Not a substitute for professional medical diagnosis.</div>
                     </div>

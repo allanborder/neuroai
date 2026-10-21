@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: neuroai-backend
+    runtime: python
+    region: oregon
+    plan: standard # 2GB+ RAM recommended for TensorFlow 2.x in-memory inference
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: ALLOWED_ORIGINS
+        sync: false
+        # Example: https://neuroai-frontend.vercel.app,http://localhost:3000
+      - key: LLM_PROVIDER
+        value: mistral
+      - key: MISTRAL_API_KEY
+        sync: false
+        # Paste your Mistral API key from console.mistral.ai
+      - key: MISTRAL_MODEL
+        value: mistral-small-latest
+      - key: MODEL_PATH
+        value: ./brain_tumor_model.h5
+      - key: MAX_UPLOAD_SIZE_MB
+        value: "10"
