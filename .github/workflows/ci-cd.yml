@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   backend-validation:
@@ -96,3 +96,38 @@ jobs:
           else
             echo "RENDER_DEPLOY_HOOK_URL secret not set. Skipping webhook (Render auto-deploys from Git if configured)."
           fi
+
+  deploy-github-pages:
+    name: Deploy to GitHub Pages
+    needs: [frontend-validation]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: neuroai-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./neuroai-frontend
+
+      - name: Build production bundle
+        run: npm run build
+        working-directory: ./neuroai-frontend
+        env:
+          CI: false
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./neuroai-frontend/build
+          publish_branch: gh-pages
+          force_orphan: true
+

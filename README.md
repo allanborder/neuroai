@@ -12,7 +12,8 @@
 
 ## 🌐 Live Website & Deployment Status
 
-- **Production Frontend**: `Awaiting Vercel deployment` (See [DEPLOYMENT.md](DEPLOYMENT.md) for 2-minute setup)
+- **GitHub Pages Live Demo**: [https://allanborder.github.io/neuroai/](https://allanborder.github.io/neuroai/)
+- **Production Frontend**: Configured for GitHub Pages (`gh-pages` branch) & Vercel
 - **Production Backend API**: `Awaiting Render deployment` (Configured via `render.yaml` & `Dockerfile`)
 - **Health Check Endpoint**: `/health` (Liveness) & `/ready` (Model Readiness)
 - **Automated CI/CD**: Active via `.github/workflows/ci-cd.yml`
